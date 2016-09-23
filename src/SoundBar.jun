@@ -1,0 +1,42 @@
+module SoundBar
+open(Prelude)
+
+let microphonePin = 15
+let barPins = [9, 8, 7, 6, 5, 4, 3, 2]
+let numBarPins = 8
+
+let state = ref List:replicate<uint16; 5>(0, 0)
+
+fun setup() = (
+    Io:setPinMode(microphonePin, Io:input());
+    for i : uint16 in 0 to numBarPins - 1 do
+        Io:setPinMode(barPins[i], Io:output())
+    end
+)
+
+fun drawBar(level : uint16) = (
+    for i in 0 to level do
+        Io:digWrite(barPins[i], Io:high())
+    end;
+    for i in level + 1 to numBarPins - 1 do
+        Io:digWrite(barPins[i], Io:low())
+    end
+)
+
+fun main() = (
+    setup();
+    while true do (
+        let micSig = Io:digIn(microphonePin);
+        let barSig = Signal:map(
+            fn (digVal) ->
+                case digVal of
+                | Io:low() => 7u16
+                | Io:high() => 0u16
+                end
+            end,
+            micSig);
+        let pastBarSig = Signal:record(barSig, state);
+        let meanBarSig = Signal:map(List:average, pastBarSig);
+        Signal:sink(drawBar, meanBarSig)
+    ) end
+)
